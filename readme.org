@@ -4,6 +4,15 @@
 #+EMAIL: 
 #+OPTIONS: ^:{}
 
+This is emacs lisp for hipchat with emacs.
+
+* requirements
+
+-  emacs jabber 
+   - ver 0.8.92
+   - http://emacs-jabber.sourceforge.net/
+- autosmiley (optional)
+
 * setting
 
 #+BEGIN_SRC lisp
@@ -31,3 +40,7 @@
 (remove-hook 'jabber-alert-presence-hooks 'jabber-presence-echo)
 #+END_SRC
 
+* usage
+
+- hipchat connect
+  - M-x jabber-connect-all
