@@ -1,0 +1,289 @@
+#+TITLE: emacs で hipchat 
+#+AUTHOR: ifritJP
+#+LANGUAGE: ja
+#+EMAIL: 
+#+OPTIONS: ^:{}
+
+* はじめに
+
+これは、emacs を hipchat クライアント化するための設定方法の説明ドキュメントです。
+
+hipchat はブラウザや専用クライアントを使って利用するのが一般的ですが、
+emacs フリークであれば hipchat も emacs でやりたくなるのが信条というものでしょう。
+
+* hipchat
+
+hipchat は XMPP をベースとしたチャットサービスです。
+
+emacs には XMPP を扱うためのライブラリ emacs-jabber (jabber.el) が開発されています。
+
+http://emacs-jabber.sourceforge.net/
+
+最新は github で開発されていますが、
+github のものは一部の起動が動作しなかったため
+sourceforge 上の 0.8.92 の利用をオススメします。
+
+* 最低限の設定設定
+
+emacs-jabber で hipchat に接続する最低限の設定は次の通りです。
+
+#+BEGIN_SRC txt
+(setq jabber-account-list
+      '(("1_1@hipchat.com" ;; <-- hipchat の JID
+	 (:network-server . "chat.hipchat.com")  ;; <-- hipchat のサーバ
+	 (:connection-type . ssl))))
+#+END_SRC
+
+あとは M-x jabber-connect-all で OK。
+
+なお hipchat の JID は、ブラウザ等のクライアントから hipchat にログインし、
+hipchat account setting →　左下の XMPP/jabber info から確認できます。
+
+
+* デフォルト設定の使い勝手改善
+
+ただ、上記設定だけだと次の問題があります。
+
+- チャットが折り返されて読み難い。
+- presence (away, online 等) のメッセージが mini-buffer に出て邪魔。
+- smiley が見慣れない
+- hipchat 接続時に、room チャットが常に「新規メッセージあり」状態になる。
+- offline 時の private チャットのログが残らない。
+
+以降は、これらの問題に対応する設定方法について説明します。
+
+** チャットの折り返しを抑制
+
+jabber は、デフォルト状態だとチャットが折り返しされます。
+文の中途半端な箇所で折り返されるのは読み難いので、
+これを次の設定で折り返しを抑制します。
+   
+#+BEGIN_SRC txt
+(setq jabber-chat-fill-long-lines nil)   
+#+END_SRC
+   
+** presence (away, online 等) のメッセージ抑制
+
+XMPP は、ユーザ状態(away, online 等)を presence として管理します。
+そしてデフォルト設定だと、その状態に変化があったときに mini-buffer に通知します。
+
+この通知が結構邪魔なので、次の設定でメッセージを抑制します。
+
+#+BEGIN_SRC lisp
+(remove-hook 'jabber-alert-presence-hooks 'jabber-presence-echo)
+#+END_SRC
+
+** smiley をアイコンで表示
+
+次の設定で一部の smiley をアイコン表示できます。
+   
+#+BEGIN_SRC lisp
+(require 'autosmiley)
+(add-hook 'jabber-chat-mode-hook 'autosmiley-mode)
+#+END_SRC
+
+** room チャットが常に「新規メッセージあり」状態になる。
+
+hipchat は、サーバ接続時に room チャットの履歴を新規メッセージとして送ってきます。
+
+これにより、 emacs-jabber は room チャットの履歴を新規メッセージとして判断してしまいます。
+これだと、本来の新規メッセージと、履歴のメッセージとが区別が付かないので、
+接続時に送られてくるメッセージを新規メッセージとして処理しないようにします。
+
+#+BEGIN_SRC lisp
+(defun jabber-hipchat-jabber-activity-show-p (JID)
+  nil
+  )
+
+(defadvice jabber-connect-all (around jabber-hipchat activate)
+  ;; hipchat は、 connect 時に ROOM のメッセージ履歴が送られてくる。
+  ;; メッセージ履歴は activity として表示しないように jabber-activity-show-p をセットする
+  (setq jabber-activity-show-p 'jabber-hipchat-jabber-activity-show-p)
+  ad-do-it
+  (run-at-time 60 nil
+	       (lambda ()
+		 (setq jabber-activity-show-p 'jabber-activity-show-p-default)
+		 )))
+#+END_SRC
+
+jabber-emacs では、
+メッセージを受信した時に jabber-activity-show-p に登録されている関数を実行し、
+そのメッセージを新規メッセージとして通知するかどうかを判断します。
+
+上記処理は、jabber-activity-show-p をダミー関数で上書きし、
+新規メッセージとしての通知を抑制するものです。
+一定時間 (60秒) 経過後に jabber-activity-show-p をデフォルトの関数に戻しています。
+
+この処理はイマイチですが、とりあえず目的の動作をしてくれます。
+
+** offline 時の private チャットのログ取得
+
+emacs-jabber は private チャットのログをファイルに記録する機能があります。
+
+ログ機能は次の設定で有効になります。
+
+#+BEGIN_SRC lisp
+(setq
+  jabber-history-enabled t
+  jabber-use-global-history nil
+  jabber-backlog-number 100
+  jabber-backlog-days 30
+ )
+#+END_SRC
+
+しかしこのログは、online 状態のログであって offline 時のログは残りません。
+
+hipchat は、offline のチャットを notification で email 通知します。
+email で通知されるので offline 時のチャット内容は分かるのですが、
+ログにないと会話の流れが見えづらくなってしまいます。
+
+そこで、 emacs-jabber のログ機能を少し拡張します。
+
+*** hipchat REST API
+
+hipchat は XMPP ベースのチャットサービスですが、REST API にも対応しています。
+
+この REST API にアクセスすることで、
+ユーザ情報やチャット情報にアクセスできます。
+
+REST API を利用するには、次のドキュメントを見れば分かります。
+
+https://www.hipchat.com/docs/apiv2
+
+ですが少しだけ説明すると、
+hipchat の REST API は Web サービスに良くある ACCESS TOKEN をヘッダに付けて
+規定の JSON コマンドを送信することで所望の操作を行なうものです。
+
+ヘッダは次のヘッダを付けます。
+
+#+BEGIN_SRC txt
+Authorization: Bearer <TOKEN>
+#+END_SRC
+
+<TOKEN> 部分に、 ACCESS TOKEN を指定します。
+
+なお hipchat は、
+REST API の種類ごとに scope と呼ばれる定義があり、
+scope ごとに ACCESS TOKEN を発行します。
+
+**** ACCESS TOKEN の取得
+
+ACCESS TOKEN の取得方法は次の 2 つあります。
+- ID/PASS から ACCESS TOKEN 自体を取得する Web API を実行する方法
+- 別途専用クライアントからログインして ACCESS TOKEN を発行する方法
+
+ここでは、処理を簡単にするために専用クライアントで
+ACCESS TOKEN を発行する方法を使います。
+
+専用クライアントで ACCESS TOKEN を発行するには、
+hipchat account setting →　左下の API access から操作できます。
+
+private チャットのログを取得するために、
+view message 用の ACCESS TOKEN を発行します。
+
+ここで取得した ACCESS TOKEN を emacs にします。
+
+#+BEGIN_SRC lisp
+(setq jabber-hipchat-view-mess-token "<TOKEN>")
+#+END_SRC
+
+**** private チャットログ取得
+
+REST API で private チャットログ取得するには、次の PATH にアクセスします。
+     
+#+BEGIN_SRC txt
+/v2/user/%d/history
+#+END_SRC
+
+ここで %d は、ユーザ ID です。
+
+**** jabber-emacs のログ取得処理を修正
+
+jabber-emacs のログ取得処理は jabber-history-query で行なっています。
+
+この処理を上書きして、 REST API から取得するように修正します。
+
+#+BEGIN_SRC lisp
+(defun jabber-hipchat-get-history-json (buffer id)
+  (call-process "curl" nil (list buffer nil) nil
+		(format "https://%s/v2/user/%s/history"
+			(cdr (assoc :network-server (car jabber-account-list))) id)
+		"--proxy" "" "-H"
+		(concat "Authorization: Bearer " jabber-hipchat-view-mess-token))
+  )
+
+(defun jabber-hipchat-hist-2-jabber-log (item jid)
+  (let ((my-jid (if (and jabber-buffer-connection
+			 (memq jabber-buffer-connection jabber-connections))
+		    (jabber-connection-bare-jid jabber-buffer-connection)
+		  (car (car jabber-account-list))))
+	message date who)
+    (if (assoc 'file item)
+	(setq message (concat "File uploaded: "
+			      (cdr (assoc 'url (cdr (assoc 'file item))))))
+      (setq message (cdr (assoc 'message item))))
+    (setq date (cdr (assoc 'date item)))
+    (string-match "\\..+" date)
+    (setq date (replace-match "" t nil date))
+    (setq who (format "1_%d@chat.btf.hipchat.com"
+		      (cdr (assoc 'id (cdr (assoc 'from item))))))
+    (list who date message)
+    (vector (concat date "Z") (if (equal who my-jid) "out" "in") "me" jid message )
+    )
+  )
+(defun jabber-hipchat-get-history (id buffer)
+  (let (json item links jid)
+    (with-temp-buffer
+      (jabber-hipchat-get-history-json (current-buffer) id)
+      (setq json (json-read-from-string (buffer-string))))
+    (setq item (cdr (assoc 'items json)))
+    (setq jid (format "1_%s@chat.btf.hipchat.com" id))
+    (with-current-buffer buffer
+      (mapcar (lambda (X) (jabber-hipchat-hist-2-jabber-log X jid)) item))
+    ))
+
+
+(defadvice jabber-history-query (around jabber-hipchat activate)
+  (let (id)
+    (with-temp-buffer
+      (string-match ".*/1_\\([0-9]+\\)@.*" history-file)
+      (setq id (replace-match "\\1" t nil history-file))
+      (setq ad-return-value
+	    (jabber-hipchat-get-history id (current-buffer)))
+      )))
+#+END_SRC
+
+** github
+
+上記の拡張処理は jabber-hipchat.el として github で公開してます。
+
+** まとめ
+
+まとめると、次の設定を行なうことで emacs から hipchat にアクセスできます。
+
+#+BEGIN_SRC lisp
+(require 'jabber-hipchat)
+
+(setq jabber-account-list
+      '(("1_1@hipchat.com" ;; <-- hipchat の JID
+	 (:network-server . "hipchat.com")  ;; <-- hipchat のサーバ
+	 (:connection-type . ssl))))
+
+(setq jabber-hipchat-view-mess-token "<TOKEN>") ;; <-- ACCESS TOKEN
+
+(setq
+  jabber-history-enabled t
+  jabber-use-global-history nil
+  jabber-backlog-number 100
+  jabber-backlog-days 30
+ )
+
+;; チャットを折り返ししない
+(setq jabber-chat-fill-long-lines nil)
+
+(require 'autosmiley)
+(add-hook 'jabber-chat-mode-hook 'autosmiley-mode)
+
+(remove-hook 'jabber-alert-presence-hooks 'jabber-presence-echo)
+#+END_SRC
+
