@@ -12,7 +12,6 @@ hipchat はブラウザや専用クライアントを使って利用するのが
 emacs フリークであれば hipchat も emacs でやりたくなるのが信条というものでしょう。
 
 *忙しい人はこのセクションを飛して、[[#summary][「まとめ」]]に進んでください。*
-
 * hipchat
 
 hipchat は XMPP をベースとしたチャットサービスです。
@@ -260,9 +259,9 @@ jabber-emacs のログ取得処理は jabber-history-query で行なっていま
 https://github.com/ifritJP/jabber-hipchat
 
 ** まとめ
-  :PROPERTIES:
-  :CUSTOM_ID: summary
-  :END:
+   :PROPERTIES: 
+   :CUSTOM_ID: summary
+   :END:      
 
    
 
