@@ -11,6 +11,8 @@
 hipchat はブラウザや専用クライアントを使って利用するのが一般的ですが、
 emacs フリークであれば hipchat も emacs でやりたくなるのが信条というものでしょう。
 
+*忙しい人はこのセクションを飛して、[[#summay][「まとめ」]]に進んでください。*
+
 * hipchat
 
 hipchat は XMPP をベースとしたチャットサービスです。
@@ -209,14 +211,11 @@ jabber-emacs のログ取得処理は jabber-history-query で行なっていま
 		(format "https://%s/v2/user/%s/history"
 			(cdr (assoc :network-server (car jabber-account-list))) id)
 		"--proxy" "" "-H"
-		(concat "Authorization: Bearer " jabber-hipchat-view-mess-token))
+		(concat "Authorization: Bearer " jabber-hipchat-token-view-mess))
   )
 
 (defun jabber-hipchat-hist-2-jabber-log (item jid)
-  (let ((my-jid (if (and jabber-buffer-connection
-			 (memq jabber-buffer-connection jabber-connections))
-		    (jabber-connection-bare-jid jabber-buffer-connection)
-		  (car (car jabber-account-list))))
+  (let ((my-jid (jabber-hipchat-my-jid))
 	message date who)
     (if (assoc 'file item)
 	(setq message (concat "File uploaded: "
@@ -225,31 +224,32 @@ jabber-emacs のログ取得処理は jabber-history-query で行なっていま
     (setq date (cdr (assoc 'date item)))
     (string-match "\\..+" date)
     (setq date (replace-match "" t nil date))
-    (setq who (format "1_%d@chat.btf.hipchat.com"
-		      (cdr (assoc 'id (cdr (assoc 'from item))))))
-    (list who date message)
-    (vector (concat date "Z") (if (equal who my-jid) "out" "in") "me" jid message )
+    (setq who (cdr (assoc 'id (cdr (assoc 'from item)))))
+    (vector (concat date "Z")
+	    (if (equal who (jabber-hipchat-jid-2-user-id my-jid))
+		"out" "in")
+	    "me" jid message )
     )
   )
-(defun jabber-hipchat-get-history (id buffer)
-  (let (json item links jid)
+(defun jabber-hipchat-get-history (jid buffer)
+  (let ((id (jabber-hipchat-jid-2-user-id jid))
+	json item links)
     (with-temp-buffer
       (jabber-hipchat-get-history-json (current-buffer) id)
       (setq json (json-read-from-string (buffer-string))))
     (setq item (cdr (assoc 'items json)))
-    (setq jid (format "1_%s@chat.btf.hipchat.com" id))
     (with-current-buffer buffer
       (mapcar (lambda (X) (jabber-hipchat-hist-2-jabber-log X jid)) item))
     ))
 
 
 (defadvice jabber-history-query (around jabber-hipchat activate)
-  (let (id)
+  (let (id jid)
     (with-temp-buffer
-      (string-match ".*/1_\\([0-9]+\\)@.*" history-file)
-      (setq id (replace-match "\\1" t nil history-file))
+      (string-match ".*/\\([0-9]+_[0-9]+@.*\\)$" history-file)
+      (setq jid (replace-match "\\1" t nil history-file))
       (setq ad-return-value
-	    (jabber-hipchat-get-history id (current-buffer)))
+	    (jabber-hipchat-get-history jid (current-buffer)))
       )))
 #+END_SRC
 
@@ -257,7 +257,14 @@ jabber-emacs のログ取得処理は jabber-history-query で行なっていま
 
 上記の拡張処理は jabber-hipchat.el として github で公開してます。
 
+https://github.com/ifritJP/jabber-hipchat
+
 ** まとめ
+  :PROPERTIES:
+  :CUSTOM_ID: summary
+  :END:
+
+   
 
 まとめると、次の設定を行なうことで emacs から hipchat にアクセスできます。
 
