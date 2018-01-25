@@ -1,9 +1,9 @@
 (require 'jabber)
 
-(defvar jabber-hipchat-token-view-mess "")
-(defvar jabber-hipchat-token-view-room "")
-(defvar jabber-hipchat-token-view-group "")
-(defvar jabber-hipchat-token-adm-room "")
+(defvar jabber-hipchat-token-view-mess "") ;; mandatory
+(defvar jabber-hipchat-token-view-room "") ;; mandatory
+(defvar jabber-hipchat-token-view-group "") ;; mandatory
+(defvar jabber-hipchat-token-adm-room "") ;; optional
 
 
 (defun jabber-hipchat-my-jid ()
