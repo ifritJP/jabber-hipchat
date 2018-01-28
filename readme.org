@@ -43,5 +43,7 @@ This is emacs lisp for hipchat with emacs.
 
 * usage
 
-- hipchat connect
+- connect hipchat 
   - M-x jabber-connect-all
+- start room chat
+  - M-x jabber-hipchat-start-room-chat

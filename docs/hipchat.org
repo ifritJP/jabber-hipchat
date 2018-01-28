@@ -12,6 +12,7 @@ hipchat はブラウザや専用クライアントを使って利用するのが
 emacs フリークであれば hipchat も emacs でやりたくなるのが信条というものでしょう。
 
 *忙しい人はこのセクションを飛して、[[#summary][「まとめ」]]に進んでください。*
+
 * hipchat
 
 hipchat は XMPP をベースとしたチャットサービスです。
@@ -50,6 +51,7 @@ hipchat account setting →　左下の XMPP/jabber info から確認できま�
 - smiley が見慣れない
 - hipchat 接続時に、room チャットが常に「新規メッセージあり」状態になる。
 - offline 時の private チャットのログが残らない。
+- 新しい ROOM でチャットするときの ROOM の JID が分からない。
 
 以降は、これらの問題に対応する設定方法について説明します。
 
@@ -252,6 +254,15 @@ jabber-emacs のログ取得処理は jabber-history-query で行なっていま
       )))
 #+END_SRC
 
+** 新しい ROOM でチャットするときの ROOM の JID が分からない。
+
+jabber-emacs では、ROOM の JID が分からないようです。
+
+チャットには ROOM の JID が必要なので、別途 JID を取得する必要があります。
+
+M-x jabber-hipchat-start-room-chat することで、
+REST API から取得した ROOM の JID を補完リストから入力してチャットを開始できます。
+
 ** github
 
 上記の拡張処理は jabber-hipchat.el として github で公開してます。
@@ -275,7 +286,10 @@ https://github.com/ifritJP/jabber-hipchat
 	 (:network-server . "hipchat.com")  ;; <-- hipchat のサーバ
 	 (:connection-type . ssl))))
 
-(setq jabber-hipchat-view-mess-token "<TOKEN>") ;; <-- ACCESS TOKEN
+(setq jabber-hipchat-token-view-mess "<TOKEN>") ;; <-- ACCESS TOKEN
+(setq jabber-hipchat-token-view-room "<TOKEN>") ;; <-- ACCESS TOKEN
+(setq jabber-hipchat-token-view-group "<TOKEN>") ;; <-- ACCESS TOKEN
+
 
 (setq
   jabber-history-enabled t
