@@ -22,14 +22,14 @@ emacs には XMPP を扱うためのライブラリ emacs-jabber (jabber.el) が
 http://emacs-jabber.sourceforge.net/
 
 最新は github で開発されていますが、
-github のものは一部の起動が動作しなかったため
+github のものは一部が動作しなかったため
 sourceforge 上の 0.8.92 の利用をオススメします。
 
 * 最低限の設定設定
 
 emacs-jabber で hipchat に接続する最低限の設定は次の通りです。
 
-#+BEGIN_SRC txt
+#+BEGIN_SRC lisp
 (setq jabber-account-list
       '(("1_1@hipchat.com" ;; <-- hipchat の JID
 	 (:network-server . "chat.hipchat.com")  ;; <-- hipchat のサーバ
@@ -61,7 +61,7 @@ jabber は、デフォルト状態だとチャットが折り返しされます�
 文の中途半端な箇所で折り返されるのは読み難いので、
 これを次の設定で折り返しを抑制します。
    
-#+BEGIN_SRC txt
+#+BEGIN_SRC lisp
 (setq jabber-chat-fill-long-lines nil)   
 #+END_SRC
    
@@ -153,21 +153,23 @@ REST API を利用するには、次のドキュメントを見れば分かり�
 
 https://www.hipchat.com/docs/apiv2
 
-ですが少しだけ説明すると、
-hipchat の REST API は Web サービスに良くある ACCESS TOKEN をヘッダに付けて
+ここでは最低限の情報だけ説明します。
+
+hipchat の REST API は Web サービスに良くある ACCESS TOKEN をヘッダに付して
 規定の JSON コマンドを送信することで所望の操作を行なうものです。
 
-ヘッダは次のヘッダを付けます。
+ヘッダは次のモノを付けます。
 
 #+BEGIN_SRC txt
 Authorization: Bearer <TOKEN>
 #+END_SRC
 
-<TOKEN> 部分に、 ACCESS TOKEN を指定します。
+~<TOKEN>~ 部分に、 ACCESS TOKEN を指定します。
 
 なお hipchat は、
 REST API の種類ごとに scope と呼ばれる定義があり、
 scope ごとに ACCESS TOKEN を発行します。
+あるいは、一つの ACCES TOKEN に複数の scope を割り当てることができます。
 
 **** ACCESS TOKEN の取得
 
@@ -189,6 +191,9 @@ view message 用の ACCESS TOKEN を発行します。
 #+BEGIN_SRC lisp
 (setq jabber-hipchat-view-mess-token "<TOKEN>")
 #+END_SRC
+
+なお、 この方法で発行した ACCES SOKEN は一定期間(1年？)で expire します。
+expire した場合は再発行が必要です。
 
 **** private チャットログ取得
 

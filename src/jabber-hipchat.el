@@ -5,6 +5,9 @@
 (defvar jabber-hipchat-token-view-group "") ;; mandatory
 (defvar jabber-hipchat-token-adm-room "") ;; optional
 
+(defvar jabber-hipchat-ignore-cert-p nil)
+(defvar jabber-hipchat-proxy "")
+
 
 (defun jabber-hipchat-my-jid ()
   (if (and jabber-buffer-connection
@@ -31,8 +34,11 @@
 		(format "https://%s/%s"
 			(cdr (assoc :network-server (car jabber-account-list))) path)
 		"-X" method
-		"--proxy" "" "-H"
-		(concat "Authorization: Bearer " token)))
+		"--proxy" jabber-hipchat-proxy
+		"-H" (concat "Authorization: Bearer " token)
+		(when jabber-hipchat-ignore-cert-p
+		  "-k")
+		))
 
 
 (setq jabber-hipchat-my-name nil)
@@ -104,12 +110,9 @@
 
 
 (defun jabber-hipchat-get-history-json (buffer id)
-  (call-process "curl" nil (list buffer nil) nil
-		(format "https://%s/v2/user/%s/history"
-			(cdr (assoc :network-server (car jabber-account-list))) id)
-		"--proxy" "" "-H"
-		(concat "Authorization: Bearer " jabber-hipchat-token-view-mess))
-  )
+  (jabber-hipchat-exec-rest-api
+   buffer (format "/v2/user/%s/history" id)
+   jabber-hipchat-token-view-mess))
 
 (defun jabber-hipchat-hist-2-jabber-log (item jid)
   (let ((my-jid (jabber-hipchat-my-jid))
