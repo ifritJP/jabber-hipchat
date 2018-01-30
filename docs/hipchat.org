@@ -22,10 +22,10 @@ emacs には XMPP を扱うためのライブラリ emacs-jabber (jabber.el) が
 http://emacs-jabber.sourceforge.net/
 
 最新は github で開発されていますが、
-github のものは一部が動作しなかったため
+github のものは一部の起動が動作しなかったため
 sourceforge 上の 0.8.92 の利用をオススメします。
 
-* 最低限の設定設定
+* 最低限の設定
 
 emacs-jabber で hipchat に接続する最低限の設定は次の通りです。
 
@@ -44,7 +44,7 @@ hipchat account setting →　左下の XMPP/jabber info から確認できま�
 
 * デフォルト設定の使い勝手改善
 
-ただ、上記設定だけだと次の問題があります。
+上記設定だけだと次の問題があります。
 
 - チャットが折り返されて読み難い。
 - presence (away, online 等) のメッセージが mini-buffer に出て邪魔。
@@ -57,7 +57,7 @@ hipchat account setting →　左下の XMPP/jabber info から確認できま�
 
 ** チャットの折り返しを抑制
 
-jabber は、デフォルト状態だとチャットが折り返しされます。
+jabber は、デフォルト状態だとチャットが折り返されます。
 文の中途半端な箇所で折り返されるのは読み難いので、
 これを次の設定で折り返しを抑制します。
    
@@ -68,7 +68,8 @@ jabber は、デフォルト状態だとチャットが折り返しされます�
 ** presence (away, online 等) のメッセージ抑制
 
 XMPP は、ユーザ状態(away, online 等)を presence として管理します。
-そしてデフォルト設定だと、その状態に変化があったときに mini-buffer に通知します。
+そして emacs-jabber のデフォルト設定だと、
+その状態に変化があったときに mini-buffer に通知します。
 
 この通知が結構邪魔なので、次の設定でメッセージを抑制します。
 
@@ -78,12 +79,20 @@ XMPP は、ユーザ状態(away, online 等)を presence として管理しま�
 
 ** smiley をアイコンで表示
 
-次の設定で一部の smiley をアイコン表示できます。
-   
+英語圏のチャットでは smiley (こういうやつ :-D) を使って、
+日本の顔文字的な表現をします。
+
+自分には smiley は見慣れないので、 smiley をアイコン表示させます。
+
 #+BEGIN_SRC lisp
 (require 'autosmiley)
 (add-hook 'jabber-chat-mode-hook 'autosmiley-mode)
 #+END_SRC
+
+*この設定は、一部の smiley のみに対応しています。*
+
+hipchat は smiley 以外に thumbs up 等のアイコンにも対応していますが、
+それらはアイコン表示できません。
 
 ** room チャットが常に「新規メッセージあり」状態になる。
 
@@ -153,12 +162,11 @@ REST API を利用するには、次のドキュメントを見れば分かり�
 
 https://www.hipchat.com/docs/apiv2
 
-ここでは最低限の情報だけ説明します。
-
-hipchat の REST API は Web サービスに良くある ACCESS TOKEN をヘッダに付して
+ですが少しだけ説明すると、
+hipchat の REST API は Web サービスに良くある ACCESS TOKEN をヘッダに付加けて
 規定の JSON コマンドを送信することで所望の操作を行なうものです。
 
-ヘッダは次のモノを付けます。
+ヘッダは次のヘッダを付けます。
 
 #+BEGIN_SRC txt
 Authorization: Bearer <TOKEN>
@@ -169,7 +177,7 @@ Authorization: Bearer <TOKEN>
 なお hipchat は、
 REST API の種類ごとに scope と呼ばれる定義があり、
 scope ごとに ACCESS TOKEN を発行します。
-あるいは、一つの ACCES TOKEN に複数の scope を割り当てることができます。
+あるいは、一つの ACCES TOKEN に複数の scope を割り当てることもできます。
 
 **** ACCESS TOKEN の取得
 
@@ -274,7 +282,7 @@ REST API から取得した ROOM の JID を補完リストから入力してチ
 
 https://github.com/ifritJP/jabber-hipchat
 
-** まとめ
+* まとめ
    :PROPERTIES: 
    :CUSTOM_ID: summary
    :END:      
@@ -311,4 +319,19 @@ https://github.com/ifritJP/jabber-hipchat
 
 (remove-hook 'jabber-alert-presence-hooks 'jabber-presence-echo)
 #+END_SRC
+
+* トラブルシュート
+
+- private chat のログが表示されない, ROOM チャットの JID が表示されない
+  - REST API が失敗している可能性があります。
+  - 次を確認してください。
+    - 指定した ACCESS TOKEN が間違っている
+      - emacs に設定した TOKEN を確認してください。
+    - ACCESS TOKEN の scope が間違っている
+      - ACCESS TOKEN の scope を確認してください。
+    - proxy 設定をしていない
+      - (setq jabber-hipchat-proxy "http://proxy.hoge.com") 
+    - サーバ証明書チェックでエラーしている  
+      - 証明書を更新する。
+      - (setq jabber-hipchat-ignore-cert-p t) で証明書チェックを無視する。
 
