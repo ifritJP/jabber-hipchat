@@ -53,29 +53,36 @@
       ))
   jabber-hipchat-my-name)
 
-(defun jabber-hipchat-start-room-chat ()
-  (interactive)
+(defun jabber-hipchat-get-room-id ()
   (let ((group-info-list (jabber-hipchat-get-all-room-json))
 	candidates-list
 	room-id room-jid)
     (setq candidates-list (mapcar (lambda (X)
-					      (format "%s:%s"
-						  (cdr (assoc 'id X))
-						  (cdr (assoc 'name X))))
-					group-info-list))
+				    (format "%s:%s"
+					    (cdr (assoc 'id X))
+					    (cdr (assoc 'name X))))
+				  group-info-list))
     (cond
      ((or (featurep 'helm) (featurep 'anything))
       (funcall (if (featurep 'helm) 'helm 'anything)
 	       :sources `((name . "group")
 			  (candidates . ,candidates-list)
 			  (action . ,(lambda (X) (setq room-id X))))))
-      (t
-       (setq room-id (completing-read "group?(complete with TAB): "
-				      candidates-list))))
+     (t
+      (setq room-id (completing-read "group?(complete with TAB): "
+				     candidates-list))))
     (string-match "\\([0-9]+\\):.*" room-id)
     (setq room-id (string-to-number (replace-match "\\1" t nil room-id)))
     (setq room-jid (cdr (assoc 'xmpp_jid (jabber-hipchat-get-room-info room-id))))
-    
+    (list room-id room-jid)
+    ))
+
+(defun jabber-hipchat-start-room-chat ()
+  (interactive)
+  (let ((list (jabber-hipchat-get-room-id))
+	room-id room-jid)
+    (setq room-id (car jabber-hipchat-get-room-id))
+    (setq room-jid (cadr jabber-hipchat-get-room-id))
     (jabber-muc-join (car jabber-connections)
 		     room-jid (jabber-hipchat-my-name) t)
   ))
@@ -109,14 +116,13 @@
     ))
 
 
-(defun jabber-hipchat-get-history-json (buffer id)
+(defun jabber-hipchat-get-history-json (buffer id target token)
   (jabber-hipchat-exec-rest-api
-   buffer (format "/v2/user/%s/history" id)
-   jabber-hipchat-token-view-mess))
+   buffer (format "/v2/%s/%s/history?max-results=1000" target id) token))
 
 (defun jabber-hipchat-hist-2-jabber-log (item jid)
   (let ((my-jid (jabber-hipchat-my-jid))
-	message date who)
+	message date who from)
     (if (assoc 'file item)
 	(setq message (concat "File uploaded: "
 			      (cdr (assoc 'url (cdr (assoc 'file item))))))
@@ -124,7 +130,10 @@
     (setq date (cdr (assoc 'date item)))
     (string-match "\\..+" date)
     (setq date (replace-match "" t nil date))
-    (setq who (cdr (assoc 'id (cdr (assoc 'from item)))))
+    (setq from (cdr (assoc 'from item)))
+    (setq who (if (listp from)
+		  (cdr (assoc 'id from))
+		"JIRA"))
     (vector (concat date "Z")
 	    (if (equal who (jabber-hipchat-jid-2-user-id my-jid))
 		"out" "in")
@@ -135,7 +144,8 @@
   (let ((id (jabber-hipchat-jid-2-user-id jid))
 	json item links)
     (with-temp-buffer
-      (jabber-hipchat-get-history-json (current-buffer) id)
+      (jabber-hipchat-get-history-json (current-buffer) id "user"
+				       jabber-hipchat-token-view-mess)
       (setq json (json-read-from-string (buffer-string))))
     (setq item (cdr (assoc 'items json)))
     (with-current-buffer buffer
@@ -165,5 +175,24 @@
 	       (lambda ()
 		 (setq jabber-activity-show-p 'jabber-activity-show-p-default)
 		 )))
+
+(defun jabber-hipchat-get-history-room ()
+  (interactive)
+  (let ((jid (jabber-hipchat-my-jid))
+	json log-list)
+    (with-temp-buffer
+      (jabber-hipchat-get-history-json (current-buffer)
+				       (car (jabber-hipchat-get-room-id)) "room"
+				       jabber-hipchat-token-view-group
+				       )
+      (setq json (json-read-from-string (buffer-string))))
+    (setq log-list (mapcar (lambda (X) (jabber-hipchat-hist-2-jabber-log X jid))
+			   (cdr (assoc 'items json))))
+    (dolist (log log-list)
+      (insert (format "%s\n" log)))
+    ))
+;;(jabber-hipchat-get-history-room)
+;; jabber-chat-insert-backlog-entry
+
 
 (provide 'jabber-hipchat)
